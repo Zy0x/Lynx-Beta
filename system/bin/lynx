@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # ==========================================
-# Lynx Modern CLI - POSIX & Termux Compatible
+# Lynx Modern CLI - Universal POSIX Version
 # ==========================================
 
 # --- Configuration & Globals ---
@@ -28,8 +28,8 @@ SELECTED_INDEX=0
 # --- Utility Functions ---
 
 log_msg() {
-    local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $1"
-    echo "$msg" >> "$LOG_FILE" 2>/dev/null
+    _msg="[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+    echo "$_msg" >> "$LOG_FILE" 2>/dev/null
 }
 
 print_header() {
@@ -42,25 +42,24 @@ print_header() {
 }
 
 show_message() {
-    local color="$1"
-    local msg="$2"
-    local delay="${3:-1.25}"
-    printf "${color}${msg}${C_RESET}\n"
-    sleep "$delay"
+    _color="$1"
+    _msg="$2"
+    _delay="${3:-1.25}"
+    printf "${_color}${_msg}${C_RESET}\n"
+    sleep "$_delay"
 }
 
 set_prop_val() {
-    local key="$1"
-    local val="$2"
-    setprop "$key" "$val" 2>/dev/null
+    _key="$1"
+    _val="$2"
+    setprop "$_key" "$_val" 2>/dev/null
     if [ -f "$PROP_FILE" ]; then
-        sed -i "s/$key=.*/$key=$val/" "$PROP_FILE"
+        sed -i "s/$_key=.*/$_key=$_val/" "$PROP_FILE"
     fi
 }
 
-# --- Menu Data (POSIX-compliant strings instead of arrays) ---
+# --- Menu Data (POSIX-compliant strings) ---
 
-# Format: "Option 1|Option 2|Option 3"
 MENU_MAIN_OPTS="Charging Control|Flow|Eterna|List App Performance|List App Flow & Eterna|Misc|Current Settings|Support|Exit"
 MENU_CC_OPTS="Enable|Disable|Set Value|Set Limit (in Perf.)|AutoCut Charging|Return"
 MENU_AC_OPTS="Enable|Disable|Set Min|Set Max|Return"
@@ -74,55 +73,51 @@ MENU_GI_OPTS="OpenGL|Vulkan|Return"
 
 # Helper to get option by index from pipe-separated string
 get_opt() {
-    local list="$1"
-    local idx="$2"
-    # Use cut to get the (idx+1)-th field
-    echo "$list" | cut -d'|' -f$((idx + 1))
+    _list="$1"
+    _idx="$2"
+    echo "$_list" | cut -d'|' -f$((_idx + 1))
 }
 
 # Helper to get count of options
 get_count() {
-    local list="$1"
-    # Count pipes and add 1
-    local count=$(echo "$list" | grep -o '|' | wc -l)
-    echo $((count + 1))
+    _list="$1"
+    _count=$(echo "$_list" | grep -o '|' | wc -l)
+    echo $((_count + 1))
 }
 
 # --- Core Logic ---
 
 draw_menu() {
-    local title="$1"
-    local opts_list="$2"
-    local num_opts=$(get_count "$opts_list")
+    _title="$1"
+    _opts_list="$2"
+    _num_opts=$(get_count "$_opts_list")
     
-    print_header "$title"
+    print_header "$_title"
     
-    local i=0
-    while [ $i -lt $num_opts ]; do
-        local opt=$(get_opt "$opts_list" $i)
-        if [ $i -eq $SELECTED_INDEX ]; then
-            printf "-> ${C_PURPLE}%s${C_RESET}\n" "$opt"
+    _i=0
+    while [ $_i -lt $_num_opts ]; do
+        _opt=$(get_opt "$_opts_list" $_i)
+        if [ $_i -eq $SELECTED_INDEX ]; then
+            printf "-> ${C_PURPLE}%s${C_RESET}\n" "$_opt"
         else
-            if [ $((i + 1)) -eq $num_opts ] || [ "$opt" = "Return" ] || [ "$opt" = "Exit" ]; then
-                printf "   ${C_YELLOW}%s${C_RESET}\n" "$opt"
-            elif [ $((i + 2)) -eq $num_opts ] && [ "$title" = "Lynx Option" ]; then
-                printf "\n   ${C_BLUE}%s${C_RESET}\n" "$opt"
+            if [ $((_i + 1)) -eq $_num_opts ] || [ "$_opt" = "Return" ] || [ "$_opt" = "Exit" ]; then
+                printf "   ${C_YELLOW}%s${C_RESET}\n" "$_opt"
+            elif [ $((_i + 2)) -eq $_num_opts ] && [ "$_title" = "Lynx Option" ]; then
+                printf "\n   ${C_BLUE}%s${C_RESET}\n" "$_opt"
             else
-                printf "   %s\n" "$opt"
+                printf "   %s\n" "$_opt"
             fi
         fi
-        i=$((i + 1))
+        _i=$((_i + 1))
     done
 }
 
 read_key() {
-    # POSIX-compliant key reading using stty
-    local key
     stty -echo -icanon time 0 min 1
-    key=$(dd bs=3 count=1 2>/dev/null)
+    _key=$(dd bs=3 count=1 2>/dev/null)
     stty echo icanon
     
-    case "$key" in
+    case "$_key" in
         $'\x1b[A') echo "UP" ;;
         $'\x1b[B') echo "DOWN" ;;
         $'\x1b[C') echo "RIGHT" ;;
@@ -143,22 +138,22 @@ handle_cc() {
         1) set_prop_val "lynx.cc" 0; show_message "$C_GREEN" "Charging Control Disabled" ;;
         2) 
             printf "\n${C_CYAN}Input Value (e.g., 2.4 for 2400mA): ${C_RESET}"
-            read input
-            if echo "$input" | grep -E -q '^[0-9]+(\.[0-9]+)?$'; then
-                set_prop_val "lynx.fcc" "$input"
-                local ma=$(echo "$input * 1000" | bc 2>/dev/null | sed 's/\.0*$//')
-                show_message "$C_GREEN" "Set to ${ma:-unknown} mA"
+            read _input
+            if echo "$_input" | grep -E -q '^[0-9]+(\.[0-9]+)?$'; then
+                set_prop_val "lynx.fcc" "$_input"
+                _ma=$(echo "$_input * 1000" | bc 2>/dev/null | sed 's/\.0*$//')
+                show_message "$C_GREEN" "Set to ${_ma:-unknown} mA"
             else
                 show_message "$C_RED" "Invalid input!"
             fi
             ;;
         3)
             printf "\n${C_CYAN}Input Limit (e.g., 1.6 for 1600mA): ${C_RESET}"
-            read input
-            if echo "$input" | grep -E -q '^[0-9]+(\.[0-9]+)?$'; then
-                set_prop_val "lynx.lcc" "$input"
-                local ma=$(echo "$input * 1000" | bc 2>/dev/null | sed 's/\.0*$//')
-                show_message "$C_GREEN" "Set to ${ma:-unknown} mA"
+            read _input
+            if echo "$_input" | grep -E -q '^[0-9]+(\.[0-9]+)?$'; then
+                set_prop_val "lynx.lcc" "$_input"
+                _ma=$(echo "$_input * 1000" | bc 2>/dev/null | sed 's/\.0*$//')
+                show_message "$C_GREEN" "Set to ${_ma:-unknown} mA"
             else
                 show_message "$C_RED" "Invalid input!"
             fi
@@ -174,20 +169,20 @@ handle_ac() {
         1) set_prop_val "lynx.ac" 0; show_message "$C_GREEN" "AutoCut Disabled" ;;
         2)
             printf "\n${C_CYAN}Input Min %%: ${C_RESET}"
-            read input
-            if echo "$input" | grep -q '^[0-9]\+$'; then
-                set_prop_val "lynx.min" "$input"
-                show_message "$C_GREEN" "Min set to $input%"
+            read _input
+            if echo "$_input" | grep -q '^[0-9]\+$'; then
+                set_prop_val "lynx.min" "$_input"
+                show_message "$C_GREEN" "Min set to $_input%"
             else
                 show_message "$C_RED" "Invalid input!"
             fi
             ;;
         3)
             printf "\n${C_CYAN}Input Max %%: ${C_RESET}"
-            read input
-            if echo "$input" | grep -q '^[0-9]\+$'; then
-                set_prop_val "lynx.max" "$input"
-                show_message "$C_GREEN" "Max set to $input%"
+            read _input
+            if echo "$_input" | grep -q '^[0-9]\+$'; then
+                set_prop_val "lynx.max" "$_input"
+                show_message "$C_GREEN" "Max set to $_input%"
             else
                 show_message "$C_RED" "Invalid input!"
             fi
@@ -210,15 +205,15 @@ handle_fm() {
         CURRENT_MENU="flow"; SELECTED_INDEX=2
         return
     fi
-    local mode=""
+    _mode=""
     case "$1" in
-        0) mode="basic" ;;
-        1) mode="advance" ;;
-        2) mode="high" ;;
-        3) mode="extreme" ;;
+        0) _mode="basic" ;;
+        1) _mode="advance" ;;
+        2) _mode="high" ;;
+        3) _mode="extreme" ;;
     esac
-    set_prop_val "lynx.fm" "$mode"
-    show_message "$C_GREEN" "Flow Mode set to $mode"
+    set_prop_val "lynx.fm" "$_mode"
+    show_message "$C_GREEN" "Flow Mode set to $_mode"
 }
 
 handle_eterna() {
@@ -232,23 +227,23 @@ handle_eterna() {
 handle_perf() {
     case "$1" in
         0) 
-            local app=$(getprop lynx.perf.app 2>/dev/null)
-            show_message "$C_CYAN" "Current Active App: ${app:-None}" 2
+            _app=$(getprop lynx.perf.app 2>/dev/null)
+            show_message "$C_CYAN" "Current Active App: ${_app:-None}" 2
             ;;
         1)
             printf "\n${C_CYAN}Enter Package Name: ${C_RESET}"
-            read pkg
-            if [ -n "$pkg" ]; then
-                echo "$pkg" >> "$MODPATH/script/applist_perf.txt"
-                show_message "$C_GREEN" "Added $pkg"
+            read _pkg
+            if [ -n "$_pkg" ]; then
+                echo "$_pkg" >> "$MODPATH/script/applist_perf.txt"
+                show_message "$C_GREEN" "Added $_pkg"
             fi
             ;;
         2)
             printf "\n${C_CYAN}Enter Package Name to Delete: ${C_RESET}"
-            read pkg
-            if [ -n "$pkg" ]; then
-                sed -i "/$pkg/d" "$MODPATH/script/applist_perf.txt"
-                show_message "$C_GREEN" "Deleted $pkg"
+            read _pkg
+            if [ -n "$_pkg" ]; then
+                sed -i "/$_pkg/d" "$MODPATH/script/applist_perf.txt"
+                show_message "$C_GREEN" "Deleted $_pkg"
             fi
             ;;
         3) CURRENT_MENU="main"; SELECTED_INDEX=3 ;;
@@ -258,23 +253,23 @@ handle_perf() {
 handle_flet() {
     case "$1" in
         0) 
-            local app=$(getprop lynx.flet.app 2>/dev/null)
-            show_message "$C_CYAN" "Current Active App: ${app:-None}" 2
+            _app=$(getprop lynx.flet.app 2>/dev/null)
+            show_message "$C_CYAN" "Current Active App: ${_app:-None}" 2
             ;;
         1)
             printf "\n${C_CYAN}Enter Package Name: ${C_RESET}"
-            read pkg
-            if [ -n "$pkg" ]; then
-                echo "$pkg" >> "$MODPATH/script/flow/extra.conf"
-                show_message "$C_GREEN" "Added $pkg"
+            read _pkg
+            if [ -n "$_pkg" ]; then
+                echo "$_pkg" >> "$MODPATH/script/flow/extra.conf"
+                show_message "$C_GREEN" "Added $_pkg"
             fi
             ;;
         2)
             printf "\n${C_CYAN}Enter Package Name to Delete: ${C_RESET}"
-            read pkg
-            if [ -n "$pkg" ]; then
-                sed -i "/$pkg/d" "$MODPATH/script/flow/extra.conf"
-                show_message "$C_GREEN" "Deleted $pkg"
+            read _pkg
+            if [ -n "$_pkg" ]; then
+                sed -i "/$_pkg/d" "$MODPATH/script/flow/extra.conf"
+                show_message "$C_GREEN" "Deleted $_pkg"
             fi
             ;;
         3) CURRENT_MENU="main"; SELECTED_INDEX=4 ;;
@@ -303,26 +298,26 @@ handle_gi() {
 # --- Main Loop ---
 
 while true; do
-    local opts=""
+    _opts=""
     case "$CURRENT_MENU" in
-        "main") opts="$MENU_MAIN_OPTS"; draw_menu "Lynx Option" "$opts" ;;
-        "cc")   opts="$MENU_CC_OPTS"; draw_menu "Charging Control" "$opts" ;;
-        "ac")   opts="$MENU_AC_OPTS"; draw_menu "Auto Cut Charging" "$opts" ;;
-        "flow") opts="$MENU_FLOW_OPTS"; draw_menu "Flow" "$opts" ;;
-        "fm")   opts="$MENU_FM_OPTS"; draw_menu "Flow Mode" "$opts" ;;
-        "eterna") opts="$MENU_ETERNA_OPTS"; draw_menu "Eterna" "$opts" ;;
-        "perf") opts="$MENU_PERF_OPTS"; draw_menu "List App Performance" "$opts" ;;
-        "flet") opts="$MENU_FLET_OPTS"; draw_menu "List App Flow & Eterna" "$opts" ;;
-        "misc") opts="$MENU_MISC_OPTS"; draw_menu "Misc" "$opts" ;;
-        "gi")   opts="$MENU_GI_OPTS"; draw_menu "Tweak Genshin Impact" "$opts" ;;
+        "main") _opts="$MENU_MAIN_OPTS"; draw_menu "Lynx Option" "$_opts" ;;
+        "cc")   _opts="$MENU_CC_OPTS"; draw_menu "Charging Control" "$_opts" ;;
+        "ac")   _opts="$MENU_AC_OPTS"; draw_menu "Auto Cut Charging" "$_opts" ;;
+        "flow") _opts="$MENU_FLOW_OPTS"; draw_menu "Flow" "$_opts" ;;
+        "fm")   _opts="$MENU_FM_OPTS"; draw_menu "Flow Mode" "$_opts" ;;
+        "eterna") _opts="$MENU_ETERNA_OPTS"; draw_menu "Eterna" "$_opts" ;;
+        "perf") _opts="$MENU_PERF_OPTS"; draw_menu "List App Performance" "$_opts" ;;
+        "flet") _opts="$MENU_FLET_OPTS"; draw_menu "List App Flow & Eterna" "$_opts" ;;
+        "misc") _opts="$MENU_MISC_OPTS"; draw_menu "Misc" "$_opts" ;;
+        "gi")   _opts="$MENU_GI_OPTS"; draw_menu "Tweak Genshin Impact" "$_opts" ;;
     esac
     
-    local key=$(read_key)
-    local num_opts=$(get_count "$opts")
+    _key=$(read_key)
+    _num_opts=$(get_count "$_opts")
 
-    case "$key" in
-        "UP")    SELECTED_INDEX=$(( (SELECTED_INDEX - 1 + num_opts) % num_opts )) ;;
-        "DOWN")  SELECTED_INDEX=$(( (SELECTED_INDEX + 1) % num_opts )) ;;
+    case "$_key" in
+        "UP")    SELECTED_INDEX=$(( (SELECTED_INDEX - 1 + _num_opts) % _num_opts )) ;;
+        "DOWN")  SELECTED_INDEX=$(( (SELECTED_INDEX + 1) % _num_opts )) ;;
         "LEFT"|"BACKSPACE")
             case "$CURRENT_MENU" in
                 "main") exit 0 ;;
@@ -333,7 +328,7 @@ while true; do
             esac
             ;;
         "HOME") SELECTED_INDEX=0 ;;
-        "END")  SELECTED_INDEX=$((num_opts - 1)) ;;
+        "END")  SELECTED_INDEX=$((_num_opts - 1)) ;;
         "ENTER")
             case "$CURRENT_MENU" in
                 "main")
@@ -344,8 +339,8 @@ while true; do
                         3) CURRENT_MENU="perf"; SELECTED_INDEX=0 ;;
                         4) CURRENT_MENU="flet"; SELECTED_INDEX=0 ;;
                         5) CURRENT_MENU="misc"; SELECTED_INDEX=0 ;;
-                        6) $LXCORE -help; printf "\nPress Enter to return..."; read dummy ;;
-                        7) [ -f "$MODPATH/credit.md" ] && cat "$MODPATH/credit.md"; printf "\nPress Enter to return..."; read dummy ;;
+                        6) $LXCORE -help; printf "\nPress Enter to return..."; read _dummy ;;
+                        7) [ -f "$MODPATH/credit.md" ] && cat "$MODPATH/credit.md"; printf "\nPress Enter to return..."; read _dummy ;;
                         8) exit 0 ;;
                     esac
                     ;;
